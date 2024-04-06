@@ -10,16 +10,16 @@ LK_CHAPTERS = 24
 IV_CHAPTERS = 21
 
 
-def get_number_of_verses(html_sinkopa):
-    rows = html_sinkopa.xpath("//span[@class='brojRetka']")
+def get_number_of_verses_in_paragraph(html_paragraph) -> int:
+    """ Returns number of verses of a given paragraph """
+    rows = html_paragraph.xpath("//span[@class='brojRetka']")
     return int(rows[-1].text)
 
 
-def parse_html(html):
+def get_random_paragraph(html_chapter):
+    """ Returns random paragraph of a given chapter """
     parser = etree.HTMLParser(encoding="utf-8")
-    html_root = etree.fromstring(html, parser)
-    # result = etree.tostring(html_root, pretty_print=True, method="html", encoding="utf-8")
-    # print(result.decode("utf-8"))
+    html_root = etree.fromstring(html_chapter, parser)
 
     # Initialize variables
     paragraphs = []
@@ -28,37 +28,37 @@ def parse_html(html):
 
     # Iterate through HTML nodes
     for element in html_root.iter():
-        current_paragraph.append(element)
-        print("ELEMENT ADDED")
+
         if first_paragraph:
             if element.tag == 'p' and 'pocetakParagrafa' in element.get('class', ''):
                 first_paragraph = False
         else:
-            if (element.tag == 'p' and 'pocetakParagrafa' in element.get('class', '')) or (
-                    element.get('id') == get_number_of_verses(html_root)):
+            if element.tag == 'p' and 'pocetakParagrafa' in element.get('class', ''):
                 paragraphs.append(current_paragraph.copy())
                 print(f"PARAGRAPH ADDED, {len(current_paragraph)}")
                 current_paragraph.clear()
+            # else:
+            #     if element.get('id') == get_number_of_verses_in_paragraph(html_root):
+            #         # paragraphs.append(current_paragraph.copy())
+            #         # print(f"PARAGRAPH ADDED, {len(current_paragraph)}")
+            #         # current_paragraph.clear()
+            #         print("LAST LINE")
 
-        # print(element.get('id'))
-        # if element.get('id') == get_number_of_verses(html_root):
-        #     current_paragraph.append(element)
-        #     paragraphs.append(current_paragraph)
+        current_paragraph.append(element)
+        print("ELEMENT ADDED")
+
+    paragraphs.append(current_paragraph.copy())
+    print(f"PARAGRAPH ADDED, {len(current_paragraph)}")
 
     print("Broj paragrafa je ", len(paragraphs))
 
-    para_html = etree.tostring(paragraphs[0][0], method="html", encoding="unicode")
-    print(para_html)
-    print("----------------------")
+    random_paragraph_number = random.choice(range(len(paragraphs)))
+    print(f"{random_paragraph_number=}")
 
-    # Print the paragraphs
-    # for paragraph in paragraphs:
-    #     para_html = etree.tostring(paragraph[0], method="html", encoding="unicode")
-    #     print(para_html)
-    #     print("----------------------")
+    return paragraphs[random_paragraph_number], random_paragraph_number, len(paragraphs)
 
 
-def randomize(data):
+def get_random_chapter(data):
     """
     Prvi index: 0 - Matej, 1 - Marko, 2 - Luka, 3 - Ivan; data[0] ce dati Mt
     Drugi index: 0 - Naslov, 1 - Tekst; data[0][1] je tekst Mt bez naslova
@@ -68,29 +68,53 @@ def randomize(data):
     gospel_number = random.choice(range(4))
     match gospel_number:
         case 0:
-            chapter_number = MT_CHAPTERS
+            num_of_chapters = MT_CHAPTERS
+            gospel_sig = "Mt"
         case 1:
-            chapter_number = MK_CHAPTERS
+            num_of_chapters = MK_CHAPTERS
+            gospel_sig = "Mk"
         case 2:
-            chapter_number = LK_CHAPTERS
+            num_of_chapters = LK_CHAPTERS
+            gospel_sig = "Lk"
         case 3:
-            chapter_number = IV_CHAPTERS
+            num_of_chapters = IV_CHAPTERS
+            gospel_sig = "Iv"
         case _:
-            chapter_number = None
-    return data[gospel_number][1][random.choice(range(chapter_number))][1]
+            num_of_chapters = None
+            gospel_sig = None
+    selected_chapter = random.choice(range(num_of_chapters))
+
+    return data[gospel_number][1][selected_chapter][1], gospel_sig, selected_chapter + 1
 
 
 def main():
+
+    final_gospel = None
+    final_chapter = None
+    total_paragraphs = None
+    final_paragraph = None
+
     try:
         with open('evangelion.json', 'r', encoding="utf-8") as file:
             data = json.load(file)
 
-        # print(data[3][1][0][1])
-        # print(len(data[3][1][0][1]))
+        # Get a random chapter and print it
+        random_chapter, final_gospel, final_chapter = get_random_chapter(data)
+        print(random_chapter)
+        print("-----------------------")
 
-        print(randomize(data))
+        # Get a random paragraph from a random chapter
+        raw_paragraph, final_paragraph, total_paragraphs = get_random_paragraph(random_chapter)
 
-        # parse_html(data[3][1][0][1])
+        # Convert the paragraph to HTML and print it
+        result = ""
+        for element in raw_paragraph:
+            result += etree.tostring(element, method="html", encoding="utf-8").decode("utf-8")
+
+        # TODO: zadnji paragraf daje dvostruke redove
+        print(result)
+
+        print(f"{final_gospel} {final_chapter}, {final_paragraph + 1}/{total_paragraphs}")
 
     except Exception as e:
         print("An error occurred:", e)
